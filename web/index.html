@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tárcafigyelő</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #EEF1F0; --panel: #FFFFFF; --ink: #15211C; --muted: #55635D; --soft: #3B4843;
+  --line: #D9DFDC; --line2: #E6EAE8; --edge: #C4CCC8; --well: #F5F7F6;
+  --pos: #17633A; --pos-bg: #E1F2E7; --neg: #A8261D; --neg-bg: #FBE6E3; --flat-bg: #EDF0EE;
+  --free: #2F3FA6; --free-bg: #E9ECFB; --free-line: #B9C1EE;
+  --dust: #6F4400; --dust-bg: #FAEED2;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.4 var(--sans); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .65; }
+button:focus-visible { outline: 2px solid var(--free); outline-offset: 2px; }
+svg { flex: none; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 32px) 48px;
+        display: flex; flex-direction: column; gap: 20px; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px;
+       font-size: 14px; color: var(--muted); }
+.mono { font-family: var(--mono); }
+.ink { color: var(--ink); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+       border-radius: 8px; font-weight: 500; background: var(--panel); border: 1px solid var(--edge); }
+.btn.primary { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+.btn.danger { color: var(--neg); border-color: #E3B5B0; }
+.btn.small { min-height: 40px; padding: 0 12px; font-size: 14px; font-weight: 400; }
+.notice { padding: 12px 14px; border-radius: 8px; background: var(--dust-bg); color: #4A2E00; font-size: 14px; }
+.notice.bad { background: var(--neg-bg); color: #6E1711; }
+.log { margin: 8px 0 0; font: 12px/1.5 var(--mono); white-space: pre-wrap; max-height: 180px; overflow: auto; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+        padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.tile .k { font-size: 14px; color: var(--muted); }
+.tile .v { font-family: var(--mono); font-size: 28px; font-weight: 500; }
+.tile .n { font-size: 13px; color: var(--muted); }
+.v.up { color: var(--pos); } .v.down { color: var(--neg); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px;
+       border-bottom: 1px solid var(--line); }
+.tab { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;
+       border-radius: 8px; font-weight: 500; background: var(--panel); border: 1px solid var(--edge); }
+.tab .c { font-family: var(--mono); font-size: 13px; }
+.filters { display: flex; flex-wrap: wrap; gap: 12px 28px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.group .lbl { font-size: 13px; color: var(--muted); }
+.chip { min-height: 44px; padding: 0 14px; border-radius: 22px; font-size: 14px;
+        background: var(--panel); border: 1px solid var(--edge); }
+.chip[aria-pressed="true"], .tab[aria-pressed="true"] { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+
+.scroll { overflow-x: auto; }
+.table { min-width: 1200px; }
+.thead, .row { display: grid; column-gap: 12px; align-items: center;
+  grid-template-columns: minmax(230px, 2.2fr) 104px 112px minmax(104px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) 150px 132px 44px; }
+.thead { padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.row { padding: 12px 16px; }
+.compact .row { padding: 4px 16px; }
+.r { text-align: right; }
+.item { border-bottom: 1px solid var(--line2); }
+.tok { display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 0; padding: 0;
+       background: none; border: 0; text-align: left; }
+.chev { stroke: var(--muted); transition: transform .12s; }
+.item.open .chev { transform: rotate(90deg); }
+.ico { flex: none; width: 36px; height: 36px; border-radius: 50%; background: #E3E8E5;
+       display: flex; align-items: center; justify-content: center; font: 600 12px var(--mono); }
+.ico.ghost { background: var(--flat-bg); border: 1px dashed #8A958F; color: var(--muted); }
+.names { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.names .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.names .sym { font-weight: 600; overflow-wrap: anywhere; }
+.names .nm { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 4px;
+       font-size: 12px; font-weight: 500; }
+.tag.free { color: var(--free); background: var(--free-bg); }
+.tag.dust { color: var(--dust); background: var(--dust-bg); }
+.tag.plain { color: var(--soft); background: var(--flat-bg); }
+.tag.bad { color: var(--neg); background: var(--neg-bg); }
+.net { display: inline-block; font-size: 13px; border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; }
+.num { font-family: var(--mono); font-size: 14px; }
+.num.b { font-weight: 500; }
+.s { font-size: 12px; color: var(--muted); }
+.c-change { display: flex; justify-content: flex-end; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 6px; font-family: var(--mono); }
+.pill .two { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
+.pill .a { font-size: 14px; font-weight: 600; } .pill .p { font-size: 12px; }
+.up { color: var(--pos); } .down { color: var(--neg); }
+.pill.up { background: var(--pos-bg); } .pill.down { background: var(--neg-bg); }
+.pill.flat { color: var(--muted); background: var(--flat-bg); }
+.dustc { color: var(--dust); }
+.bell { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0;
+        border-radius: 8px; background: var(--panel); border: 1px solid var(--edge); }
+.bell[aria-pressed="true"] { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+
+.detail { background: var(--well); border-top: 1px solid var(--line2); padding: 14px 16px 18px 42px;
+          display: flex; flex-direction: column; gap: 12px; }
+.detail h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.lots { overflow-x: auto; }
+.lhead, .lot { display: grid; column-gap: 12px; align-items: center; min-width: 1000px;
+  grid-template-columns: 104px minmax(160px, 1.5fr) minmax(90px, 1fr) minmax(110px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) 130px 170px; }
+.lhead { font-size: 12px; color: var(--muted); padding-bottom: 4px; }
+.lot { font: 13px var(--mono); padding: 3px 0; }
+.lot .how { font: 14px var(--sans); }
+.mark { padding: 3px 8px; border-radius: 4px; font-weight: 600; }
+.mark.up { background: var(--pos-bg); } .mark.down { background: var(--neg-bg); } .mark.flat { color: var(--muted); background: var(--flat-bg); }
+.lbtn { min-height: 40px; min-width: 104px; padding: 0 12px; border-radius: 6px; font: 500 13px var(--sans);
+        background: var(--panel); border: 1px solid var(--edge); }
+.lbtn.free { color: var(--free); background: var(--free-bg); border-color: var(--free-line); }
+.reset { min-height: 40px; min-width: 40px; padding: 0; border-radius: 6px; background: none; border: 1px solid var(--edge); }
+.jel { display: flex; justify-content: flex-end; gap: 6px; }
+.meta { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--soft); overflow-wrap: anywhere; }
+.foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+        padding-top: 10px; border-top: 1px solid #E0E5E2; }
+.below { padding: 14px 16px; font-size: 13px; color: var(--soft); display: flex; flex-direction: column; gap: 10px; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+.srow { display: grid; column-gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line2);
+        grid-template-columns: minmax(240px, 2fr) 104px 112px minmax(104px, 1fr) minmax(260px, 2.4fr) 170px; }
+.srow.h { padding: 10px 16px; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.right { display: flex; justify-content: flex-end; }
+.loading { padding: 60px 16px; text-align: center; color: var(--muted); }
+.pad { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.pad h2 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; }
+.wrow, .wadd { display: grid; gap: 10px 12px; align-items: end; }
+.wrow { grid-template-columns: minmax(160px, 240px) minmax(0, 1fr) auto auto; padding-bottom: 14px; border-bottom: 1px solid var(--line2); }
+.wadd { grid-template-columns: minmax(160px, 240px) minmax(0, 1fr) auto; }
+.fld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.fld input { min-height: 44px; width: 100%; min-width: 0; padding: 0 12px; border: 1px solid var(--edge);
+             border-radius: 8px; font: 15px var(--sans); color: var(--ink); background: var(--panel); }
+.fld input.mono { font: 14px var(--mono); }
+.fld input:focus-visible { outline: 2px solid var(--free); outline-offset: 1px; }
+.waddr { min-height: 44px; display: flex; align-items: center; font: 14px var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+
+@media (max-width: 860px) {
+  .table { min-width: 0; }
+  .thead, .srow.h { display: none; }
+  .row, .srow { grid-template-columns: 1fr 1fr; row-gap: 10px; }
+  .row > .tok, .srow > .who, .srow > .why, .srow > .right { grid-column: 1 / -1; }
+  .row > [data-l], .srow > [data-l] { text-align: left; }
+  .row > [data-l]::before, .srow > [data-l]::before { content: attr(data-l); display: block;
+    font: 12px var(--sans); color: var(--muted); margin-bottom: 2px; }
+  .c-change { flex-direction: column; align-items: flex-start; }
+  .srow > .right { justify-content: flex-start; }
+  .detail { padding-left: 16px; }
+  .wrow, .wadd { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div id="app"><p class="loading">Betöltés…</p></div>
+<script>
+'use strict';
+const S = { data: null, error: null, tab: 'tokens', wallet: 'all', chain: 'all', flag: 'all',
+            sort: 'val', open: {}, timer: null, panel: false, confirm: null,
+            draft: { label: '', address: '' } };
+const app = document.getElementById('app');
+const HU = 'hu-HU';
+
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = (v) => v.toLocaleString(HU, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' $';
+const usd = (v) => v == null ? 'nincs adat' : (v > 0 && v < 0.01 ? '< 0,01 $' : money(v));
+const qty = (v) => v >= 1000 ? v.toLocaleString(HU, { maximumFractionDigits: 2 })
+  : v >= 1 ? v.toLocaleString(HU, { maximumFractionDigits: 4 })
+  : v.toLocaleString(HU, { maximumSignificantDigits: 4 });
+const unit = (p) => p == null ? 'nincs adat'
+  : (p >= 1 ? money(p) : p.toLocaleString(HU, { maximumSignificantDigits: 3 }) + ' $');
+const day = (s) => s ? s.slice(0, 10).replace(/-/g, '. ') + '.' : '–';
+const stamp = (s) => s ? new Date(s).toLocaleString(HU, { year: 'numeric', month: '2-digit',
+  day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'még nem volt';
+const shortAddr = (a) => a.slice(0, 6) + '…' + a.slice(-4);
+
+function delta(change, percent) {
+  if (change == null) return { cls: 'flat', label: 'nincs adat', pct: '', dir: 0 };
+  const up = change > 0.005, down = change < -0.005;
+  const sign = up ? '+' : down ? '−' : '';
+  const pct = percent == null ? '' : sign + Math.abs(percent).toLocaleString(HU,
+    { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  return { cls: up ? 'up' : down ? 'down' : 'flat', label: sign + money(Math.abs(change)), pct, dir: up ? 1 : down ? -1 : 0 };
+}
+
+const ICON = {
+  stroke: (d, size) => `<svg viewBox="0 0 20 20" width="${size}" height="${size}" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`,
+  lock: () => ICON.stroke('<path d="M6 9V7a4 4 0 0 1 8 0v2"/><path d="M5 9h10v8H5z"/>', 16),
+  refresh: () => ICON.stroke('<path d="M16 10a6 6 0 1 1-2-4.500"/><path d="M14.500 2.500v3.500H11"/>', 16),
+  gift: () => ICON.stroke('<path d="M3 9h14v8H3z"/><path d="M2 6h16v3H2z"/><path d="M10 6v11"/><path d="M10 6C8.500 2.500 5 3 5 4.500S8 6 10 6c2 0 5 0 5-1.500S11.500 2.500 10 6"/>', 13),
+  clock: () => ICON.stroke('<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>', 13),
+  bell: () => ICON.stroke('<path d="M5 14V9a5 5 0 0 1 10 0v5l1.500 2h-13z"/><path d="M8.500 17.500a1.500 1.500 0 0 0 3 0"/>', 18),
+  warn: () => ICON.stroke('<path d="M10 3l8 14H2z"/><path d="M10 8.500v4"/><path d="M10 14.800v.200"/>', 18),
+  undo: () => ICON.stroke('<path d="M4 8h8a4 4 0 0 1 0 8H8"/><path d="M7 5L4 8l3 3"/>', 16),
+  chev: () => '<svg class="chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5l5 5-5 5"/></svg>',
+  up: () => '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M5 1L9 9H1z" fill="currentColor"/></svg>',
+  down: () => '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M5 9L1 1h8z" fill="currentColor"/></svg>',
+};
+
+async function api(path, body) {
+  const options = body === undefined ? {} : {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tarca': '1' },
+    body: JSON.stringify(body) };
+  const response = await fetch(path, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || ('HTTP ' + response.status));
+  return data;
+}
+
+async function load() {
+  try {
+    S.data = await api('/api/state');
+    S.error = null;
+  } catch (error) {
+    S.error = String(error.message || error);
+  }
+  render();
+  watchRefresh();
+}
+
+function watchRefresh() {
+  clearTimeout(S.timer);
+  if (!S.data || !S.data.refresh.running) return;
+  S.timer = setTimeout(async () => {
+    try {
+      const status = await api('/api/refresh');
+      const wasRunning = S.data.refresh.running;
+      S.data.refresh = status;
+      if (wasRunning && !status.running) return load();
+      // gépelés közben nem rajzoljuk újra az oldalt, különben elveszne a beírt szöveg
+      if (!(document.activeElement && document.activeElement.tagName === 'INPUT')) render();
+    } catch (error) { /* a következő körben újra próbáljuk */ }
+    watchRefresh();
+  }, 1500);
+}
+
+function groups() {
+  const all = S.data.tokens.filter((t) => S.wallet === 'all' || t.wallet === S.wallet);
+  const nfts = all.filter((t) => t.nft);
+  const spam = all.filter((t) => t.spam && !t.nft);
+  const rest = all.filter((t) => !t.spam && !t.nft);
+  const crumbs = rest.filter((t) => t.leftover && (t.value || 0) < 0.01);
+  const normal = rest.filter((t) => !crumbs.includes(t));
+  return { nfts, spam, rest, crumbs, normal };
+}
+
+function visible(normal) {
+  const rows = normal.filter((t) => {
+    if (S.chain !== 'all' && t.chain !== S.chain) return false;
+    if (S.flag === 'plus') return t.change != null && t.change > 0.005;
+    if (S.flag === 'minus') return t.change != null && t.change < -0.005;
+    if (S.flag === 'free') return t.all_free || t.part_free;
+    if (S.flag === 'dust') return t.dust;
+    if (S.flag === 'noprice') return t.value == null;
+    return true;
+  });
+  const low = -1e18;
+  rows.sort((a, b) => {
+    if (S.sort === 'chg') return (b.change_pct == null ? low : b.change_pct) - (a.change_pct == null ? low : a.change_pct);
+    if (S.sort === 'date') return String(b.last_time || '').localeCompare(String(a.last_time || ''));
+    return (b.value == null ? -1 : b.value) - (a.value == null ? -1 : a.value);
+  });
+  return rows;
+}
+
+function chip(act, value, label, current) {
+  return `<button class="chip" data-act="${act}" data-v="${esc(value)}" aria-pressed="${current === value}">${esc(label)}</button>`;
+}
+
+function headHtml() {
+  const d = S.data, r = d.refresh;
+  const one = d.wallets.length === 1;
+  const who = one
+    ? `<span class="mono ink">${esc(shortAddr(d.wallets[0].address))}</span><span>${esc(d.wallets[0].label)} · csak olvasás, a publikus cím alapján</span>`
+    : d.wallets.length ? `<span>${d.wallets.length} cím · csak olvasás, a publikus címek alapján</span>`
+    : '<span>Még nincs figyelt cím</span>';
+  let note = '';
+  if (!d.has_key) {
+    note = '<div class="notice">Hiányzik az Alchemy kulcs. Írd be a <span class="mono">.env</span> fájlba, különben a frissítés nem tud futni.</div>';
+  } else if (r.running) {
+    const lines = r.log.trim().split('\n');
+    note = `<div class="notice">Frissítés folyamatban… <span class="mono">${esc(lines[lines.length - 1] || '')}</span></div>`;
+  } else if (r.code != null && r.code !== 0) {
+    note = `<div class="notice bad">A legutóbbi frissítés hibával állt le.<pre class="log">${esc(r.log.trim())}</pre></div>`;
+  }
+  if (S.error) note += `<div class="notice bad" role="alert">${esc(S.error)}</div>`;
+  return `
+  <div class="head">
+    <div>
+      <h1>Tárcafigyelő</h1>
+      <div class="sub">${ICON.lock()}${who}</div>
+    </div>
+    <div class="actions">
+      <span class="sub" style="margin: 0">Frissítve: <span class="mono ink">${esc(stamp(d.last_sync))}</span></span>
+      <button class="btn" data-act="panel" aria-expanded="${S.panel}"><span>Címek</span><span class="mono">${d.wallets.length}</span></button>
+      <button class="btn primary" data-act="refresh" ${r.running || !d.has_key || !d.wallets.length ? 'disabled' : ''}>${ICON.refresh()}<span>${r.running ? 'Frissítés…' : 'Frissítés'}</span></button>
+    </div>
+  </div>${note}`;
+}
+
+function walletsHtml() {
+  const d = S.data, full = d.wallets.length >= d.max_wallets;
+  const rows = d.wallets.map((w) => `
+    <div class="wrow">
+      <label class="fld"><span>Név</span><input data-rename="${esc(w.address)}" value="${esc(w.label)}" maxlength="30"></label>
+      <div class="fld"><span>Cím</span><span class="waddr">${esc(w.address)}</span></div>
+      <button class="btn small" data-act="wrename" data-addr="${esc(w.address)}">Név mentése</button>
+      <button class="btn small danger" data-act="wremove" data-addr="${esc(w.address)}" ${d.wallets.length < 2 ? 'disabled' : ''}>${S.confirm === w.address ? 'Biztosan törlöd?' : 'Törlés'}</button>
+    </div>`).join('');
+  const add = full ? `<div class="s">Elérted a legfeljebb ${d.max_wallets} címet.</div>` : `
+    <form class="wadd" data-form="wadd">
+      <label class="fld"><span>Név</span><input id="nw-label" maxlength="30" value="${esc(S.draft.label)}" placeholder="például Régi MetaMask"></label>
+      <label class="fld"><span>Publikus cím</span><input id="nw-address" class="mono" value="${esc(S.draft.address)}" placeholder="0x…" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+      <button class="btn primary" type="submit">Hozzáadás</button>
+    </form>`;
+  return `
+  <div class="panel pad">
+    <h2>Figyelt címek <span class="s mono">${d.wallets.length} / ${d.max_wallets}</span></h2>
+    ${rows}${add}
+    <div class="s">Csak publikus címet írj be. Privát kulcsot vagy seed phrase-t a program soha nem kér. Törléskor a már letöltött adatok megmaradnak a gépeden.</div>
+  </div>`;
+}
+
+function tilesHtml(rest) {
+  let now = 0, then = 0, thenNow = 0, miss = 0, net = 0, dust = 0;
+  const chains = new Set();
+  for (const t of rest) {
+    chains.add(t.chain);
+    if (t.value != null) now += t.value;
+    if (t.value != null && t.then_value != null) { then += t.then_value; thenNow += t.value; }
+    else if (t.value != null && t.value >= 0.01) miss += 1;
+    if (t.dust) dust += 1;
+    else if (t.value != null) net += Math.max(0, t.value - (t.fee || 0));
+  }
+  const d = delta(thenNow - then, then > 0 ? (thenNow - then) / then * 100 : null);
+  return `
+  <div class="tiles">
+    <div class="tile"><div class="k">Aktuális érték</div><div class="v">${money(now)}</div>
+      <div class="n">${rest.length} token · ${chains.size} lánc</div></div>
+    <div class="tile"><div class="k">Érték érkezéskor</div><div class="v">${money(then)}</div>
+      <div class="n">${miss ? miss + ' tokennél nincs érkezéskori érték' : 'minden áras tokenhez van adat'}</div></div>
+    <div class="tile"><div class="k">Változás érkezés óta</div><div class="v ${d.cls}">${d.label}</div>
+      <div class="n">${d.pct ? d.pct + ' az ismert értékű tokeneken' : 'az ismert értékű tokeneken'}</div></div>
+    <div class="tile"><div class="k">Eladás után maradna</div><div class="v">${money(net)}</div>
+      <div class="n">${dust ? dust + ' token díj alatt, nem számolva' : 'becsült díjak levonva'}</div></div>
+  </div>`;
+}
+
+function tokenTags(t) {
+  const tags = [];
+  if (t.all_free) tags.push(`<span class="tag free">${ICON.gift()}Ingyenes</span>`);
+  else if (t.part_free) tags.push(`<span class="tag free">${ICON.gift()}Részben ingyenes</span>`);
+  if (t.dust) tags.push(`<span class="tag dust">${ICON.clock()}Díj alatt</span>`);
+  if (t.value == null) tags.push('<span class="tag plain">Nincs ára</span>');
+  if (t.leftover) tags.push('<span class="tag plain">Eladás utáni maradék</span>');
+  if (t.spam_manual && !t.spam) tags.push('<span class="tag plain">Kézzel: nem scam</span>');
+  if (S.data.wallets.length > 1) tags.push(`<span class="tag plain">${esc(t.wallet_label)}</span>`);
+  return tags.join('');
+}
+
+const ACQ = { bought: 'Vásárolt', free: 'Ingyenes', transfer: 'Átutalás', internal: 'Saját címről' };
+
+function lotHtml(lot) {
+  const change = lot.then_value != null && lot.now_value != null ? lot.now_value - lot.then_value : null;
+  const d = delta(change, null);
+  const how = (ACQ[lot.acq] || 'Ismeretlen') + (lot.acq === 'free' && lot.initiated ? ' (te kérted le)' : '');
+  const basis = lot.basis === 'paid' ? 'a kifizetett összegből' : lot.basis === 'market' ? 'napi árfolyamon' : '';
+  const next = lot.acq === 'free' ? 'bought' : 'free';
+  const reset = lot.acq_manual
+    ? `<button class="reset" data-act="lot" data-lot="${lot.id}" data-v="" aria-label="Kézi jelölés törlése">${ICON.undo()}</button>` : '';
+  return `
+  <div class="lot">
+    <div>${esc(day(lot.time))}</div>
+    <div class="how">${esc(how)}${basis ? `<div class="s">${basis}</div>` : ''}</div>
+    <div class="r">${qty(lot.amount)}</div>
+    <div class="r">${unit(lot.price)}</div>
+    <div class="r">${usd(lot.then_value)}</div>
+    <div class="r">${lot.now_value == null ? 'nincs ár' : usd(lot.now_value)}</div>
+    <div class="right"><span class="mark ${d.cls}">${d.label}</span></div>
+    <div class="jel">${reset}<button class="lbtn ${lot.acq === 'free' ? 'free' : ''}" data-act="lot" data-lot="${lot.id}" data-v="${next}" aria-label="${esc(ACQ[lot.acq] || '')} – átjelölés erre: ${ACQ[next]}">${esc(ACQ[lot.acq] || '–')}</button></div>
+  </div>`;
+}
+
+function detailHtml(t) {
+  const lots = t.lots.length ? `
+    <h3>Érkezések tételenként</h3>
+    <div class="lots">
+      <div class="lhead"><div>Dátum</div><div>Hogyan érkezett</div><div class="r">Megmaradt</div>
+        <div class="r">Árfolyam akkor</div><div class="r">Érték akkor</div><div class="r">Érték most</div>
+        <div class="r">Változás</div><div class="r">Jelölés</div></div>
+      ${t.lots.map(lotHtml).join('')}
+    </div>` : '';
+  const meta = [];
+  if (!t.native) meta.push(`Szerződés: <span class="mono">${esc(t.token)}</span>`);
+  if (t.price_source === 'dex') meta.push(`Az ár a DexScreener legnagyobb párjából jön (likviditás: ${money(t.liquidity || 0)}).`);
+  if (t.value == null) meta.push('Nincs ára: nincs olyan piaca, ahol érdemben el lehetne adni.');
+  if (t.fee != null) meta.push(`Becsült eladási díj ezen a láncon (${esc(t.chain_name)}): ${usd(t.fee)}.`);
+  if (t.no_history) meta.push('Ehhez a tokenhez nem találtam mozgást, ezért nincs érkezéskori érték.');
+  if (t.mismatch) meta.push('A mozgásokból számolt mennyiség nem egyezik az egyenleggel, ezért nem mutatok érkezéskori értéket.');
+  if (t.partly_unknown) meta.push('A coin egy részének eredete nem látszik a mozgásokban, ezért nem mutatok érkezéskori értéket.');
+  if (t.pending) meta.push('Az érkezéskori ár még nincs lekérve; a következő frissítés pótolja.');
+  meta.push(t.watch ? 'Megjelölve figyelésre. Értesítést a program még nem küld.' : 'Nincs megjelölve figyelésre.');
+  const buttons = [];
+  if (t.spam_manual) buttons.push(`<button class="btn small" data-act="spam" data-id="${esc(t.id)}" data-v="">Kézi scam-jelölés törlése</button>`);
+  if (!t.native) buttons.push(`<button class="btn small danger" data-act="spam" data-id="${esc(t.id)}" data-v="1">Scam-nek jelölöm</button>`);
+  return `
+  <div class="detail">${lots}
+    <div class="foot"><div class="meta">${meta.map((m) => `<span>${m}</span>`).join('')}</div>
+      <div class="actions">${buttons.join('')}</div></div>
+  </div>`;
+}
+
+function rowHtml(t) {
+  const d = delta(t.change, t.change_pct);
+  const open = !!S.open[t.id];
+  const count = t.lots.length;
+  let net = '–', netSub = 'nincs ára', netCls = '';
+  if (t.value != null) {
+    netSub = t.fee == null ? 'díj ismeretlen' : 'díj kb. ' + usd(t.fee);
+    if (t.dust) { net = 'nem éri meg'; netCls = 'dustc'; }
+    else net = usd(Math.max(0, t.value - (t.fee || 0)));
+  }
+  const arrow = d.dir > 0 ? ICON.up() : d.dir < 0 ? ICON.down() : '';
+  return `
+  <div class="item ${open ? 'open' : ''}">
+    <div class="row">
+      <button class="tok" data-act="toggle" data-id="${esc(t.id)}" aria-expanded="${open}">
+        ${ICON.chev()}<span class="ico">${esc(t.symbol.slice(0, 2).toUpperCase())}</span>
+        <span class="names"><span class="top"><span class="sym">${esc(t.symbol)}</span><span class="nm">${esc(t.name)}</span></span>
+        <span class="tags">${tokenTags(t)}</span></span>
+      </button>
+      <div data-l="Lánc"><span class="net">${esc(t.chain_name)}</span></div>
+      <div data-l="Érkezett"><div class="num">${esc(day(t.last_time))}</div><div class="s">${count ? count + ' érkezés' : 'nincs történet'}</div></div>
+      <div class="r num" data-l="Mennyiség">${qty(t.amount)}</div>
+      <div class="r" data-l="Érték érkezéskor"><div class="num">${usd(t.then_value)}</div></div>
+      <div class="r" data-l="Érték most"><div class="num b">${t.value == null ? 'nincs ár' : usd(t.value)}</div><div class="s mono">${t.price == null ? '' : unit(t.price) + '/db'}</div></div>
+      <div class="c-change" data-l="Változás"><span class="pill ${d.cls}">${arrow}<span class="two"><span class="a">${d.label}</span><span class="p">${d.pct}</span></span></span></div>
+      <div class="r" data-l="Eladás után"><div class="num ${netCls}">${net}</div><div class="s mono">${netSub}</div></div>
+      <div data-l="Figyelő"><button class="bell" data-act="watch" data-id="${esc(t.id)}" aria-pressed="${t.watch}" aria-label="Megjelölés figyelésre">${ICON.bell()}</button></div>
+    </div>
+    ${open ? detailHtml(t) : ''}
+  </div>`;
+}
+
+function tokensTab(g) {
+  const d = S.data;
+  const chainsUsed = d.chains.filter((c) => g.normal.some((t) => t.chain === c.slug));
+  const rows = visible(g.normal);
+  const wallets = d.wallets.length > 1 ? `
+    <div class="group"><span class="lbl">Tárca</span>${chip('wallet', 'all', 'Mind', S.wallet)}
+      ${d.wallets.map((w) => chip('wallet', w.address, w.label, S.wallet)).join('')}</div>` : '';
+  const crumbs = g.crumbs.length ? `<div><b>Eladás utáni töredékek (${g.crumbs.length}):</b> ${
+    g.crumbs.map((t) => `${esc(t.symbol)} (${esc(t.chain_name)})`).join(', ')}</div>` : '';
+  return `
+  <div class="filters">${wallets}
+    <div class="group"><span class="lbl">Lánc</span>${chip('chain', 'all', 'Mind', S.chain)}
+      ${chainsUsed.map((c) => chip('chain', c.slug, c.name, S.chain)).join('')}</div>
+    <div class="group"><span class="lbl">Mutasd</span>
+      ${[['all', 'Mind'], ['plus', 'Nyereséges'], ['minus', 'Veszteséges'], ['free', 'Ingyenes'],
+         ['dust', 'Díj alatt'], ['noprice', 'Nincs ára']].map(([v, l]) => chip('flag', v, l, S.flag)).join('')}</div>
+    <div class="group"><span class="lbl">Rendezés</span>
+      ${[['val', 'Érték'], ['chg', 'Változás'], ['date', 'Érkezés']].map(([v, l]) => chip('sort', v, l, S.sort)).join('')}</div>
+  </div>
+  <div class="scroll"><div class="table">
+    <div class="thead"><div>Token</div><div>Lánc</div><div>Érkezett</div><div class="r">Mennyiség</div>
+      <div class="r">Érték érkezéskor</div><div class="r">Érték most</div><div class="r">Változás</div>
+      <div class="r">Eladás után</div><div>Figyelő</div></div>
+    ${rows.map(rowHtml).join('') || '<div class="empty">Nincs a szűrésnek megfelelő token.</div>'}
+  </div></div>
+  <div class="below">${crumbs}
+    <div class="legend">
+      <span><span class="sw" style="background: var(--pos-bg); border: 1px solid var(--pos)"></span>Többet ér, mint érkezéskor</span>
+      <span><span class="sw" style="background: var(--neg-bg); border: 1px solid var(--neg)"></span>Kevesebbet ér</span>
+      <span><span class="tag free">Ingyenes</span>Nem fizettél érte</span>
+      <span><span class="tag dust">Díj alatt</span>Az eladás díja több, mint amennyit ér</span>
+    </div>
+  </div>`;
+}
+
+function scamTab(g) {
+  const rows = g.spam.map((t) => `
+  <div class="srow">
+    <div class="who" style="display: flex; align-items: center; gap: 10px; min-width: 0">
+      <span class="ico ghost">${esc(t.symbol.slice(0, 2).toUpperCase())}</span>
+      <span class="names"><span class="sym">${esc(t.symbol)}</span><span class="nm">${esc(t.name)}</span></span>
+    </div>
+    <div data-l="Lánc"><span class="net">${esc(t.chain_name)}</span></div>
+    <div class="num" data-l="Érkezett">${esc(day(t.last_time))}</div>
+    <div class="r num" data-l="Mennyiség">${qty(t.amount)}</div>
+    <div class="why reasons">${t.spam_reason.split('; ').filter(Boolean).map((r) => `<span class="tag bad">${esc(r)}</span>`).join('')}</div>
+    <div class="right"><button class="btn small" data-act="spam" data-id="${esc(t.id)}" data-v="${t.spam_manual ? '' : '0'}">${t.spam_manual ? 'Jelölés törlése' : 'Nem scam'}</button></div>
+  </div>`).join('');
+  return `
+  <div style="padding: 16px"><div class="notice" style="display: flex; gap: 10px">${ICON.warn()}
+    <span>Ezeket csak nézd. Ne hagyd jóvá, ne próbáld eladni őket, és ne nyisd meg a nevükben szereplő linket.</span></div></div>
+  <div class="scroll"><div class="table" style="min-width: 0">
+    <div class="srow h"><div>Token</div><div>Lánc</div><div>Érkezett</div><div class="r">Mennyiség</div><div>Miért gyanús</div><div class="r">Áthelyezés</div></div>
+    ${rows || '<div class="empty">Nincs scam-gyanús token.</div>'}
+  </div></div>
+  <div class="below">Ezek a tételek nem számítanak bele a fenti összegekbe.</div>`;
+}
+
+function nftTab(g) {
+  const rows = g.nfts.map((t) => `
+  <div class="srow" style="grid-template-columns: minmax(240px, 2fr) 140px 1fr">
+    <div class="who" style="display: flex; align-items: center; gap: 10px; min-width: 0">
+      <span class="ico">${esc(t.symbol.slice(0, 2).toUpperCase())}</span>
+      <span class="names"><span class="sym">${esc(t.symbol)}</span><span class="nm">${esc(t.name)}</span></span>
+    </div>
+    <div data-l="Lánc"><span class="net">${esc(t.chain_name)}</span></div>
+    <div class="num" data-l="Darab">${Math.round(t.amount)} db</div>
+  </div>`).join('');
+  return `${rows || '<div class="empty">Nincs NFT ezen a címen.</div>'}
+  <div class="below">Az NFT-knél egyelőre csak a kollekció és a darabszám látszik, érték nem.</div>`;
+}
+
+function render() {
+  const d = S.data;
+  if (!d) {
+    if (S.error) app.innerHTML = `<div class="wrap"><div class="notice bad">Nem érem el a szervert: ${esc(S.error)}</div></div>`;
+    return;
+  }
+  if (!d.wallets.length) S.panel = true;      // cím nélkül rögtön a címek megadása látszik
+  const g = groups();
+  const tab = (id, label, count) => `<button class="tab" data-act="tab" data-v="${id}" aria-pressed="${S.tab === id}"><span>${label}</span><span class="c">${count}</span></button>`;
+  let body;
+  if (!d.wallets.length) {
+    body = '<div class="empty">Add meg az első címedet fent, a Figyelt címek részben.</div>';
+  } else if (!d.tokens.length) {
+    body = '<div class="empty">Még nincs adat. Kattints a Frissítés gombra: az első letöltés pár percig tarthat.</div>';
+  } else {
+    body = S.tab === 'scam' ? scamTab(g) : S.tab === 'nft' ? nftTab(g) : tokensTab(g);
+  }
+  app.innerHTML = `
+  <div class="wrap">
+    ${headHtml()}
+    ${S.panel ? walletsHtml() : ''}
+    ${tilesHtml(g.rest)}
+    <div class="panel">
+      <div class="bar">${tab('tokens', 'Tokenek', g.normal.length)}${tab('scam', 'Scam-gyanús', g.spam.length)}${tab('nft', 'NFT-k', g.nfts.length)}</div>
+      ${body}
+    </div>
+  </div>`;
+}
+
+app.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-act]');
+  if (!button) return;
+  const act = button.dataset.act, value = button.dataset.v;
+  const token = S.data && S.data.tokens.find((t) => t.id === button.dataset.id);
+  try {
+    if (act === 'tab' || act === 'wallet' || act === 'chain' || act === 'flag' || act === 'sort') {
+      S[act] = value;
+      if (act === 'wallet') S.chain = 'all';
+    } else if (act === 'toggle') {
+      S.open[button.dataset.id] = !S.open[button.dataset.id];
+    } else if (act === 'watch' && token) {
+      S.data = await api('/api/watch', { address: token.wallet, chain: token.chain, token: token.token, on: !token.watch });
+    } else if (act === 'spam' && token) {
+      S.data = await api('/api/token-flag', { address: token.wallet, chain: token.chain, token: token.token,
+        spam: value === '' ? null : value === '1' });
+    } else if (act === 'lot') {
+      S.data = await api('/api/lot-flag', { id: Number(button.dataset.lot), acq: value || null });
+    } else if (act === 'refresh') {
+      const answer = await api('/api/refresh', {});
+      S.data.refresh = answer.refresh;
+      watchRefresh();
+    } else if (act === 'panel') {
+      S.panel = !S.panel;
+      S.confirm = null;
+    } else if (act === 'wrename') {
+      const input = app.querySelector(`input[data-rename="${button.dataset.addr}"]`);
+      S.data = await api('/api/wallets', { action: 'rename', address: button.dataset.addr, label: input.value });
+    } else if (act === 'wremove') {
+      if (S.confirm !== button.dataset.addr) {
+        S.confirm = button.dataset.addr;      // első kattintás: rákérdezünk
+      } else {
+        S.data = await api('/api/wallets', { action: 'remove', address: button.dataset.addr });
+        S.confirm = null;
+        if (S.wallet === button.dataset.addr) S.wallet = 'all';
+      }
+    }
+    S.error = null;
+  } catch (error) {
+    S.error = String(error.message || error);
+  }
+  render();
+});
+
+app.addEventListener('input', (event) => {
+  if (event.target.id === 'nw-label') S.draft.label = event.target.value;
+  if (event.target.id === 'nw-address') S.draft.address = event.target.value;
+});
+
+app.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (event.target.dataset.form !== 'wadd') return;
+  try {
+    S.data = await api('/api/wallets', { action: 'add', label: S.draft.label, address: S.draft.address });
+    S.draft = { label: '', address: '' };
+    S.error = null;
+    if (S.data.has_key && !S.data.refresh.running) {
+      // az új címhez rögtön letöltjük az adatokat
+      const answer = await api('/api/refresh', {});
+      S.data.refresh = answer.refresh;
+      watchRefresh();
+    }
+  } catch (error) {
+    S.error = String(error.message || error);
+  }
+  render();
+});
+
+load();
+</script>
+</body>
+</html>

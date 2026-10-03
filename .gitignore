@@ -1,0 +1,8 @@
+# saját beállítások és adatok: ezek soha ne kerüljenek fel
+.env
+config.ini
+config.ini.tmp
+tarca.sqlite3
+tarca.sqlite3-wal
+tarca.sqlite3-shm
+__pycache__/
