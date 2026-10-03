@@ -44,8 +44,8 @@ fájlból olvassa, és a hibaüzenetekből is kitakarja.
 ## Telepítés és indítás
 
 ```
-git clone <a repó címe>
-cd tarcafigyelo
+git clone https://github.com/Pungi9/walletchecker.git
+cd walletchecker
 cp .env.example .env        # Windows alatt: copy .env.example .env
 ```
 
